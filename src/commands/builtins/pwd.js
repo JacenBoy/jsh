@@ -5,7 +5,7 @@ class PWD {
     this.pathResolver = new PathResolver();
   }
 
-  async execute(args) {
+  async execute(input) {
     const cwd = this.pathResolver.resolvePath(".");
     return console.log(cwd);
   }

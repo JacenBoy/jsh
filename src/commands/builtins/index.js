@@ -1,12 +1,14 @@
 const CD = require('./cd');
 const PWD = require('./pwd');
+const Prompt = require('./prompt');
 const Exit = require('./exit');
 
 class BuiltinCommands {
-  constructor() {
+  constructor(shell) {
     this.commands = {
       cd: new CD(),
       pwd: new PWD(),
+      prompt: new Prompt(shell),
       exit: new Exit()
     };
   }

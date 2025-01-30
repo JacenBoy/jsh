@@ -1,4 +1,12 @@
 const Shell = require('./core/Shell');
 
-const jsh = new Shell();
-jsh.start();
+async function main() {
+  const jsh = new Shell();
+  await jsh.init();
+  jsh.start();
+}
+
+main().catch(error => {
+  console.error('Shell initialization error:', error);
+  process.exit(1);
+});

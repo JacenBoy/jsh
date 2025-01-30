@@ -3,7 +3,9 @@ class Exit {
 
   }
 
-  async execute(args) {
+  async execute(input) {
+    const args = input.args;
+    
     process.exit(args[0] || 0);
   }
 }

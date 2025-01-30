@@ -2,19 +2,24 @@ const BuiltinCommands = require('./builtins');
 const ProcessManager = require('../utils/ProcessManager');
 
 class CommandExecutor {
-  constructor() {
-    this.builtins = new BuiltinCommands();
+  constructor(shell) {
+    this.builtins = new BuiltinCommands(shell);
     this.processManager = new ProcessManager();
   }
 
-  async execute({ command, args }) {
-    if (!command) return;
+  async execute(input) {
+    if (!input) return true;
+
+    const { command } = input;
+    if (!command) return true;
 
     if (this.builtins.hasCommand(command)) {
-      return await this.builtins.execute(command, args);
+      // Pass the entire input object to builtin commands
+      return await this.builtins.execute(command, input);
     }
 
-    return await this.processManager.spawnProcess(command, args);
+    // For external commands, continue using just the args array
+    return await this.processManager.spawnProcess(command, input.args);
   }
 }
 

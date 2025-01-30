@@ -11,7 +11,7 @@ class Shell {
   constructor(config = {}) {
     this.configManager = new ConfigManager();
     this.inputHandler = new InputHandler(this);
-    this.completionHandler = new CompletionHandler();
+    this.completionHandler = new CompletionHandler(this);
     this.commandExecutor = new CommandExecutor(this);
     this.environmentManager = new EnvironmentManager();
     this.promptManager = new PromptManager();

@@ -3,11 +3,13 @@ const os = require('os');
 const fs = require('fs');
 
 class CompletionHandler {
-  constructor() {
+  constructor(shell) {
+    this.shell = shell;
     // Preload executables cache
     this.executablesCache = new Set();
     this.updateExecutablesCache();
   }
+
   complete(line, cwd) {
     const words = line.split(' ');
     const currentWord = words[words.length - 1] || '';
@@ -15,34 +17,105 @@ class CompletionHandler {
     let matches = [];
 
     if (words.length <= 1) {
-      // Completing command name
-      matches = Array.from(this.executablesCache)
-        .filter(exe => exe.toLowerCase().startsWith(currentWord.toLowerCase()));
-    } else {
-      // Completing file/directory name
-      let basePath = currentWord;
-      let searchDir = cwd;
+      // Completing command name - combine builtins and executables
+      const builtinCommands = Object.keys(this.shell.commandExecutor.builtins.commands);
 
-      if (path.dirname(currentWord) !== '.') {
-        searchDir = path.resolve(cwd, path.dirname(currentWord));
-        basePath = path.basename(currentWord);
+      // Create a combined set of completions
+      const allCommands = new Set([
+        ...Array.from(this.executablesCache),
+        ...builtinCommands
+      ]);
+
+      matches = Array.from(allCommands)
+        .filter(cmd => cmd.toLowerCase().startsWith(currentWord.toLowerCase()));
+
+      // Sort matches to show builtins first
+      matches.sort((a, b) => {
+        const aIsBuiltin = builtinCommands.includes(a);
+        const bIsBuiltin = builtinCommands.includes(b);
+        if (aIsBuiltin && !bIsBuiltin) return -1;
+        if (!aIsBuiltin && bIsBuiltin) return 1;
+        return a.localeCompare(b);
+      });
+    } else {
+      // Handle specific command argument completion
+      const command = words[0].toLowerCase();
+
+      // Add special completion for specific built-in commands
+      if (this.shell.commandExecutor.builtins.hasCommand(command)) {
+        matches = this.completeBuiltinArgs(command, words, currentWord, cwd);
       }
 
-      const items = this.getFilesAndDirs(searchDir);
-      matches = items.filter(item =>
-        item.toLowerCase().startsWith(basePath.toLowerCase())
-      );
+      // If no special completion or it's not a builtin, fall back to file/directory completion
+      if (matches.length === 0) {
+        let basePath = currentWord;
+        let searchDir = cwd;
 
-      // Add the directory prefix back to matches if there was one
-      if (path.dirname(currentWord) !== '.') {
-        matches = matches.map(match =>
-          path.join(path.dirname(currentWord), match)
+        if (path.dirname(currentWord) !== '.') {
+          searchDir = path.resolve(cwd, path.dirname(currentWord));
+          basePath = path.basename(currentWord);
+        }
+
+        const items = this.getFilesAndDirs(searchDir);
+        matches = items.filter(item =>
+          item.toLowerCase().startsWith(basePath.toLowerCase())
         );
+
+        // Add the directory prefix back to matches if there was one
+        if (path.dirname(currentWord) !== '.') {
+          matches = matches.map(match =>
+            path.join(path.dirname(currentWord), match)
+          );
+        }
       }
     }
 
     // Return matches and the substring we're completing
     return [matches, currentWord];
+  }
+
+  completeBuiltinArgs(command, words, currentWord, cwd) {
+    // Special completion logic for specific built-in commands
+    switch (command) {
+      case 'cd':
+        // Only complete directories for cd
+        return this.getFilesAndDirs(cwd)
+          .filter(item => item.endsWith('/') &&
+            item.toLowerCase().startsWith(currentWord.toLowerCase()));
+
+      case 'env':
+        // Complete -p, -u flags and environment variable names
+        if (currentWord.startsWith('-')) {
+          return ['-p', '-u', '-l'].filter(flag =>
+            flag.startsWith(currentWord));
+        }
+        // Complete environment variable names
+        return Object.keys(this.shell.environmentManager.getAll())
+          .filter(name => name.toLowerCase()
+            .startsWith(currentWord.toLowerCase()));
+
+      case 'path':
+        // Complete subcommands and flags
+        if (words.length <= 2) {
+          return ['add', 'remove']
+            .filter(cmd => cmd.startsWith(currentWord));
+        }
+        if (words[1] === 'add' && currentWord === '-') {
+          return ['-p'];
+        }
+        return [];
+
+      case 'history':
+        // Complete flags
+        if (currentWord.startsWith('-')) {
+          return ['-c', '--clear'].filter(flag =>
+            flag.startsWith(currentWord));
+        }
+        return [];
+
+      default:
+        return [];
+    }
   }
 
   updateExecutablesCache() {

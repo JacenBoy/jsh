@@ -1,33 +1,82 @@
 class InputHandler {
   parseLine(line) {
-    // Only trim the start to preserve trailing spaces
+    // Only trim the start to preserve intentional trailing spaces
     const startTrimmed = line.trimStart();
     if (!startTrimmed) return null;
 
-    // Find the first space to separate command from args
-    const firstSpaceIndex = startTrimmed.indexOf(' ');
-    
-    if (firstSpaceIndex === -1) {
-      // No spaces found, just a command
-      return {
-        command: startTrimmed,
-        args: [],
-        rawArgs: ''  // Add raw argument string for commands that need it
-      };
-    }
-
-    // Split into command and raw args
-    const command = startTrimmed.slice(0, firstSpaceIndex);
-    const rawArgs = startTrimmed.slice(firstSpaceIndex + 1);
-    
-    // Also provide split args for commands that want them
-    const args = rawArgs.trim().length > 0 ? rawArgs.trim().split(/\s+/) : [];
+    const parsed = this.tokenize(startTrimmed);
+    if (!parsed.length) return null;
 
     return {
-      command,
-      args,
-      rawArgs
+      command: parsed[0],
+      args: parsed.slice(1),
+      rawArgs: startTrimmed.indexOf(' ') >= 0
+        ? startTrimmed.slice(startTrimmed.indexOf(' ') + 1)
+        : ''
     };
+  }
+
+  tokenize(line) {
+    const tokens = [];
+    let current = '';
+    let inQuotes = false;
+    let quoteChar = '';
+    let escaped = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+
+      if (escaped) {
+        // Handle escaped character
+        current += char;
+        escaped = false;
+        continue;
+      }
+
+      if (char === '\\') {
+        escaped = true;
+        continue;
+      }
+
+      if (char === '"' || char === "'") {
+        if (inQuotes && char === quoteChar) {
+          // End of quoted section
+          inQuotes = false;
+          quoteChar = '';
+        } else if (!inQuotes) {
+          // Start of quoted section
+          inQuotes = true;
+          quoteChar = char;
+        } else {
+          // Different quote character while already in quotes
+          current += char;
+        }
+        continue;
+      }
+
+      if (char === ' ' && !inQuotes) {
+        // Space outside quotes - token boundary
+        if (current) {
+          tokens.push(current);
+          current = '';
+        }
+        continue;
+      }
+
+      current += char;
+    }
+
+    // Add final token if any
+    if (current) {
+      tokens.push(current);
+    }
+
+    // Handle unclosed quotes
+    if (inQuotes) {
+      console.warn('Warning: Unclosed quotes in command');
+    }
+
+    return tokens;
   }
 }
 

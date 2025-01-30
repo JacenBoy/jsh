@@ -113,6 +113,14 @@ class CompletionHandler {
         }
         return [];
 
+      case 'echo':
+        // Complete flags
+        if (currentWord.startsWith('-')) {
+          return ['-n', '-e', '-E', '--'].filter(flag =>
+            flag.startsWith(currentWord));
+        }
+        return [];
+
       default:
         return [];
     }

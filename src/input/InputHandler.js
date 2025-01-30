@@ -1,7 +1,11 @@
 class InputHandler {
+  constructor(shell) {
+    this.shell = shell;
+  }
+
   parseLine(line) {
     // Only trim the start to preserve intentional trailing spaces
-    const startTrimmed = line.trimStart();
+    const startTrimmed = this.shell.environmentManager.expand(line.trimStart());
     if (!startTrimmed) return null;
 
     const parsed = this.tokenize(startTrimmed);

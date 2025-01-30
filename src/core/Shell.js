@@ -5,18 +5,22 @@ const CompletionHandler = require('../input/CompletionHandler');
 const PromptManager = require('../utils/PromptManager');
 const ConfigManager = require('../utils/ConfigManager');
 const HistoryManager = require('../utils/HistoryManager');
+const EnvironmentManager = require('../utils/EnvironmentManager');
 
 class Shell {
   constructor(config = {}) {
     this.configManager = new ConfigManager();
-    this.inputHandler = new InputHandler();
+    this.inputHandler = new InputHandler(this);
     this.completionHandler = new CompletionHandler();
     this.commandExecutor = new CommandExecutor(this);
+    this.environmentManager = new EnvironmentManager();
     this.promptManager = new PromptManager();
   }
 
   async init() {
     this.config = await this.loadConfig();
+
+    await this.environmentManager.loadPersistentVars();
 
     if (this.config.prompt?.template) {
       this.promptManager.setTemplate(this.config.prompt.template);

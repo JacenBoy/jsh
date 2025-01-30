@@ -1,6 +1,8 @@
 const CD = require('./cd');
 const PWD = require('./pwd');
 const Prompt = require('./prompt');
+const Env = require('./env');
+const Path = require('./path');
 const History = require('./history');
 const Eval = require('./eval');
 const Exit = require('./exit');
@@ -11,6 +13,8 @@ class BuiltinCommands {
       cd: new CD(),
       pwd: new PWD(),
       prompt: new Prompt(shell),
+      env: new Env(shell),
+      path: new Path(shell),
       history: new History(shell),
       exit: new Exit(shell),
       eval: new Eval()

@@ -8,6 +8,9 @@ class ConfigManager {
     this.config = {
       prompt: {
         template: '[\\u@\\h \\w]$ '
+      },
+      history: {
+        maxHistory: 1000
       }
     };
   }

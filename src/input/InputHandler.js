@@ -1,10 +1,11 @@
+const os = require('os');
+
 class InputHandler {
   constructor(shell) {
     this.shell = shell;
   }
 
   parseLine(line) {
-    // Only trim the start to preserve intentional trailing spaces
     const startTrimmed = this.shell.environmentManager.expand(line.trimStart());
     if (!startTrimmed) return null;
 
@@ -26,40 +27,65 @@ class InputHandler {
     let inQuotes = false;
     let quoteChar = '';
     let escaped = false;
+    const isWindows = os.platform() === 'win32';
 
     for (let i = 0; i < line.length; i++) {
       const char = line[i];
+      const nextChar = line[i + 1];
 
       if (escaped) {
-        // Handle escaped character
-        current += char;
+        // Always handle escaped characters
+        if (inQuotes && quoteChar === '"') {
+          // In double quotes, only escape certain characters
+          if (char === '"' || char === '\\' || char === '$') {
+            current += char;
+          } else {
+            current += '\\' + char;
+          }
+        } else {
+          // Outside quotes or in single quotes, escape everything
+          current += char;
+        }
         escaped = false;
         continue;
       }
 
       if (char === '\\') {
+        if (isWindows) {
+          // Check if this is likely part of a Windows path
+          const isWindowsPath =
+            // Path characters that commonly follow a backslash
+            (nextChar && (
+              nextChar === '\\' || // Another backslash
+              nextChar === ':' ||  // Drive letter
+              /[A-Za-z0-9\.]/.test(nextChar) // Letters, numbers, dots
+            )) &&
+            // Not inside quotes (where it's more likely to be an escape)
+            !inQuotes;
+
+          if (isWindowsPath) {
+            current += char;
+            continue;
+          }
+        }
         escaped = true;
         continue;
       }
 
       if (char === '"' || char === "'") {
         if (inQuotes && char === quoteChar) {
-          // End of quoted section
           inQuotes = false;
           quoteChar = '';
         } else if (!inQuotes) {
-          // Start of quoted section
           inQuotes = true;
           quoteChar = char;
         } else {
-          // Different quote character while already in quotes
           current += char;
         }
         continue;
       }
 
       if (char === ' ' && !inQuotes) {
-        // Space outside quotes - token boundary
         if (current) {
           tokens.push(current);
           current = '';

@@ -5,6 +5,7 @@ const Env = require('./env');
 const Path = require('./path');
 const History = require('./history');
 const Eval = require('./eval');
+const Source = require('./source');
 const Exit = require('./exit');
 
 class BuiltinCommands {
@@ -17,7 +18,8 @@ class BuiltinCommands {
       path: new Path(shell),
       history: new History(shell),
       exit: new Exit(shell),
-      eval: new Eval()
+      eval: new Eval(),
+      source: new Source(shell)
     };
   }
 

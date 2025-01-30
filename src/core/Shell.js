@@ -1,6 +1,7 @@
 const readline = require('readline');
 const CommandExecutor = require('../commands/CommandExecutor');
 const InputHandler = require('../input/InputHandler');
+const CompletionHandler = require('../input/CompletionHandler');
 const PromptManager = require('../utils/PromptManager');
 const ConfigManager = require('../utils/ConfigManager');
 
@@ -8,13 +9,15 @@ class Shell {
   constructor(config = {}) {
     this.configManager = new ConfigManager();
     this.inputHandler = new InputHandler();
+    this.completionHandler = new CompletionHandler();
     this.commandExecutor = new CommandExecutor(this);
     this.promptManager = new PromptManager();
 
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
-      prompt: ''
+      prompt: '',
+      completer: (line) => this.completionHandler.complete(line, process.cwd())
     });
   }
 
@@ -36,7 +39,7 @@ class Shell {
     this.rl.on('line', async (line) => {
       const input = this.inputHandler.parseLine(line);
       const success = await this.commandExecutor.execute(input);
-      
+
       // Update prompt after each command
       updatePrompt();
     });
@@ -61,7 +64,7 @@ class Shell {
     this.promptManager.setTemplate(template);
     this.configManager.set('prompt', 'template', template);
     await this.configManager.save();
-    
+
     this.rl.setPrompt(this.promptManager.formatPrompt());
     this.rl.prompt(true);
   }

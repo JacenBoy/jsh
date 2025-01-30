@@ -1,6 +1,7 @@
 const CD = require('./cd');
 const PWD = require('./pwd');
 const Prompt = require('./prompt');
+const Eval = require('./eval');
 const Exit = require('./exit');
 
 class BuiltinCommands {
@@ -9,7 +10,8 @@ class BuiltinCommands {
       cd: new CD(),
       pwd: new PWD(),
       prompt: new Prompt(shell),
-      exit: new Exit()
+      exit: new Exit(),
+      eval: new Eval()
     };
   }
 

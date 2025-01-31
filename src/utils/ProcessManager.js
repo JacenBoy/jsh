@@ -3,7 +3,12 @@ const { spawn } = require('child_process');
 class ProcessManager {
   spawnProcess(command, args) {
     return new Promise((resolve) => {
-      const childProcess = spawn(command, args, {
+      // If command contains path separators, resolve it as a path
+      const finalCommand = command.includes('/') || command.includes('\\') 
+        ? command  // Keep absolute/relative paths as-is
+        : command; // Let the shell resolve command lookup
+      
+      const childProcess = spawn(finalCommand, args, {
         cwd: process.cwd(),
         stdio: 'inherit',
         shell: true

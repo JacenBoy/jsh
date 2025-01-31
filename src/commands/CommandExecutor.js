@@ -1,18 +1,35 @@
 const BuiltinCommands = require('./builtins');
 const ProcessManager = require('../utils/ProcessManager');
+const PathResolver = require('../utils/PathResolver');
 
 class CommandExecutor {
   constructor(shell) {
     this.shell = shell;
     this.builtins = new BuiltinCommands(shell);
     this.processManager = new ProcessManager();
+    this.pathResolver = new PathResolver();
   }
 
   async execute(input) {
     if (!input) return true;
   
-    const { command } = input;
+    const { command, args } = input;
     if (!command) return true;
+
+    // Expand ~ in arguments
+    const expandedArgs = args.map(arg => {
+      if (arg.includes('~')) {
+        try {
+          return this.pathResolver.normalizePath(arg);
+        } catch (error) {
+          return arg;
+        }
+      }
+      return arg;
+    });
+    
+    // Update input with expanded arguments
+    input.args = expandedArgs;
   
     // Track alias expansion to prevent infinite recursion
     const expandedCommands = new Set([command]);

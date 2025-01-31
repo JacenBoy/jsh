@@ -1,24 +1,50 @@
+const PathResolver = require('../utils/PathResolver');
 const os = require('os');
 
 class InputHandler {
   constructor(shell) {
     this.shell = shell;
+    this.pathResolver = new PathResolver();
   }
 
   parseLine(line) {
     const startTrimmed = this.shell.environmentManager.expand(line.trimStart());
     if (!startTrimmed) return null;
 
-    const parsed = this.tokenize(startTrimmed);
+    const expandedLine = this.expandTildeInCommand(startTrimmed);
+    const parsed = this.tokenize(expandedLine);
     if (!parsed.length) return null;
 
     return {
       command: parsed[0],
       args: parsed.slice(1),
-      rawArgs: startTrimmed.indexOf(' ') >= 0
-        ? startTrimmed.slice(startTrimmed.indexOf(' ') + 1)
+      rawArgs: expandedLine.indexOf(' ') >= 0
+        ? expandedLine.slice(expandedLine.indexOf(' ') + 1)
         : ''
     };
+  }
+
+  expandTildeInCommand(line) {
+    // Split into command and args while preserving quotes
+    const parts = line.match(/[^\s"']+|"([^"]*)"|'([^']*)'/g) || [];
+    
+    if (parts.length === 0) return line;
+
+    // Only expand ~ in the command part (first token)
+    let command = parts[0];
+    if (command.startsWith('~')) {
+      try {
+        command = this.pathResolver.normalizePath(command);
+      } catch (error) {
+        // If expansion fails, return original command
+        return line;
+      }
+      
+      // Reconstruct the line with expanded command
+      return [command, ...parts.slice(1)].join(' ');
+    }
+
+    return line;
   }
 
   tokenize(line) {

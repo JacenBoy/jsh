@@ -13,65 +13,115 @@ class CompletionHandler {
   complete(line, cwd) {
     const words = line.split(' ');
     const currentWord = words[words.length - 1] || '';
+    let matches = [];
 
+    // Check if the first word is an alias and expand it
+    if (words.length > 0 && words[0]) {
+      const expandedCommand = this.expandAliasForCompletion(words[0]);
+      if (expandedCommand !== words[0]) {
+        // Create a new line with the expanded alias
+        const expandedWords = this.shell.inputHandler.parseLine(expandedCommand)?.args || [];
+        // Preserve any additional arguments after the alias
+        const newLine = [...expandedWords, ...words.slice(1)].join(' ');
+        // Get completions for the expanded command
+        return this.getCompletionsForLine(newLine, currentWord, cwd);
+      }
+    }
+
+    return this.getCompletionsForLine(line, currentWord, cwd);
+  }
+
+  expandAliasForCompletion(command) {
+    // Track expanded commands to prevent infinite recursion
+    const seen = new Set([command]);
+    let current = command;
+    let expanded;
+
+    while ((expanded = this.shell.aliasManager.getAlias(current))) {
+      // Get just the command part if there are arguments
+      const expandedCommand = this.shell.inputHandler.parseLine(expanded)?.command;
+      if (!expandedCommand || seen.has(expandedCommand)) {
+        break;
+      }
+      seen.add(expandedCommand);
+      current = expandedCommand;
+    }
+
+    return this.shell.aliasManager.getAlias(command) || command;
+  }
+
+  getCompletionsForLine(line, currentWord, cwd) {
+    const words = line.split(' ');
     let matches = [];
 
     if (words.length <= 1) {
-      // Completing command name - combine builtins and executables
+      // Completing command name - combine builtins, aliases, and executables
       const builtinCommands = Object.keys(this.shell.commandExecutor.builtins.commands);
+      const aliasNames = Array.from(this.shell.aliasManager.getAllAliases().keys());
 
       // Create a combined set of completions
       const allCommands = new Set([
         ...Array.from(this.executablesCache),
-        ...builtinCommands
+        ...builtinCommands,
+        ...aliasNames
       ]);
 
       matches = Array.from(allCommands)
         .filter(cmd => cmd.toLowerCase().startsWith(currentWord.toLowerCase()));
 
-      // Sort matches to show builtins first
+      // Sort matches to show builtins first, then aliases, then executables
       matches.sort((a, b) => {
         const aIsBuiltin = builtinCommands.includes(a);
         const bIsBuiltin = builtinCommands.includes(b);
+        const aIsAlias = aliasNames.includes(a);
+        const bIsAlias = aliasNames.includes(b);
+        
         if (aIsBuiltin && !bIsBuiltin) return -1;
         if (!aIsBuiltin && bIsBuiltin) return 1;
+        if (aIsAlias && !bIsAlias) return -1;
+        if (!aIsAlias && bIsAlias) return 1;
         return a.localeCompare(b);
       });
     } else {
       // Handle specific command argument completion
       const command = words[0].toLowerCase();
 
-      // Add special completion for specific built-in commands
+      // First check builtins
       if (this.shell.commandExecutor.builtins.hasCommand(command)) {
         matches = this.completeBuiltinArgs(command, words, currentWord, cwd);
       }
 
-      // If no special completion or it's not a builtin, fall back to file/directory completion
+      // If no matches from builtins, fall back to file/directory completion
       if (matches.length === 0) {
-        let basePath = currentWord;
-        let searchDir = cwd;
-
-        if (path.dirname(currentWord) !== '.') {
-          searchDir = path.resolve(cwd, path.dirname(currentWord));
-          basePath = path.basename(currentWord);
-        }
-
-        const items = this.getFilesAndDirs(searchDir);
-        matches = items.filter(item =>
-          item.toLowerCase().startsWith(basePath.toLowerCase())
-        );
-
-        // Add the directory prefix back to matches if there was one
-        if (path.dirname(currentWord) !== '.') {
-          matches = matches.map(match =>
-            path.join(path.dirname(currentWord), match)
-          );
-        }
+        matches = this.getFileCompletions(currentWord, cwd);
       }
     }
 
-    // Return matches and the substring we're completing
     return [matches, currentWord];
+  }
+
+  getFileCompletions(currentWord, cwd) {
+    let basePath = currentWord;
+    let searchDir = cwd;
+
+    if (path.dirname(currentWord) !== '.') {
+      searchDir = path.resolve(cwd, path.dirname(currentWord));
+      basePath = path.basename(currentWord);
+    }
+
+    const items = this.getFilesAndDirs(searchDir);
+    let matches = items.filter(item =>
+      item.toLowerCase().startsWith(basePath.toLowerCase())
+    );
+
+    // Add the directory prefix back to matches if there was one
+    if (path.dirname(currentWord) !== '.') {
+      matches = matches.map(match =>
+        path.join(path.dirname(currentWord), match)
+      );
+    }
+
+    return matches;
   }
 
   completeBuiltinArgs(command, words, currentWord, cwd) {
@@ -120,6 +170,33 @@ class CompletionHandler {
             flag.startsWith(currentWord));
         }
         return [];
+
+      case 'alias':
+        // If the word starts with a dash, complete flags
+        if (currentWord.startsWith('-')) {
+          return ['-r', '--remove'].filter(flag => 
+            flag.startsWith(currentWord)
+          );
+        }
+        
+        // If we're after a -r or --remove flag, complete with existing alias names
+        if (words[words.length - 2] === '-r' || words[words.length - 2] === '--remove') {
+          const aliases = Array.from(this.shell.aliasManager.getAllAliases().keys());
+          return aliases.filter(alias => 
+            alias.toLowerCase().startsWith(currentWord.toLowerCase())
+          );
+        }
+        
+        // If there's an equals sign in the current word, don't complete
+        if (currentWord.includes('=')) {
+          return [];
+        }
+        
+        // Otherwise, suggest existing alias names 
+        const aliases = Array.from(this.shell.aliasManager.getAllAliases().keys());
+        return aliases.filter(alias => 
+          alias.toLowerCase().startsWith(currentWord.toLowerCase())
+        );
 
       default:
         return [];

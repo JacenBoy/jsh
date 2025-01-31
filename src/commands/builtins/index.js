@@ -2,6 +2,7 @@ const CD = require('./cd');
 const PWD = require('./pwd');
 const Echo = require('./echo');
 const Prompt = require('./prompt');
+const Alias = require('./alias');
 const Env = require('./env');
 const Path = require('./path');
 const Which = require('./which');
@@ -17,6 +18,7 @@ class BuiltinCommands {
       pwd: new PWD(),
       echo: new Echo(),
       prompt: new Prompt(shell),
+      alias: new Alias(shell),
       env: new Env(shell),
       path: new Path(shell),
       which: new Which(shell),

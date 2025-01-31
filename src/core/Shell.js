@@ -1,5 +1,6 @@
 const readline = require('readline');
 const CommandExecutor = require('../commands/CommandExecutor');
+const AliasManager = require('../utils/AliasManager');
 const InputHandler = require('../input/InputHandler');
 const CompletionHandler = require('../input/CompletionHandler');
 const PromptManager = require('../utils/PromptManager');
@@ -13,6 +14,7 @@ class Shell {
     this.inputHandler = new InputHandler(this);
     this.completionHandler = new CompletionHandler(this);
     this.commandExecutor = new CommandExecutor(this);
+    this.aliasManager = new AliasManager();
     this.environmentManager = new EnvironmentManager();
     this.promptManager = new PromptManager();
   }
@@ -21,6 +23,7 @@ class Shell {
     this.config = await this.loadConfig();
 
     await this.environmentManager.loadPersistentVars();
+    await this.aliasManager.loadAliases();
 
     if (this.config.prompt?.template) {
       this.promptManager.setTemplate(this.config.prompt.template);

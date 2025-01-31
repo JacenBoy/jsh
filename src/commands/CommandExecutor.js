@@ -3,22 +3,56 @@ const ProcessManager = require('../utils/ProcessManager');
 
 class CommandExecutor {
   constructor(shell) {
+    this.shell = shell;
     this.builtins = new BuiltinCommands(shell);
     this.processManager = new ProcessManager();
   }
 
   async execute(input) {
     if (!input) return true;
-
+  
     const { command } = input;
     if (!command) return true;
-
+  
+    // Track alias expansion to prevent infinite recursion
+    const expandedCommands = new Set([command]);
+    
+    // Keep expanding aliases until we either:
+    // 1. Find a command that isn't an alias
+    // 2. Find an alias we've already seen (loop prevention)
+    let currentCommand = command;
+    let expandedCommand;
+    
+    while ((expandedCommand = this.shell.aliasManager.expandAlias(currentCommand)) !== currentCommand) {
+      if (expandedCommands.has(expandedCommand)) {
+        console.error(`alias: circular reference detected: ${command}`);
+        return false;
+      }
+      expandedCommands.add(expandedCommand);
+      currentCommand = expandedCommand;
+    }
+    
+    // If command was an alias, parse the final expanded command
+    if (currentCommand !== command) {
+      // Combine the expanded command with any additional arguments from the original input
+      const fullCommand = input.args.length > 0 
+        ? `${currentCommand} ${input.args.join(' ')}` 
+        : currentCommand;
+        
+      const newInput = this.shell.inputHandler.parseLine(fullCommand);
+      if (newInput) {
+        // Don't recurse - we've already fully expanded the aliases
+        if (this.builtins.hasCommand(newInput.command)) {
+          return await this.builtins.execute(newInput.command, newInput);
+        }
+        return await this.processManager.spawnProcess(newInput.command, newInput.args);
+      }
+    }
+  
     if (this.builtins.hasCommand(command)) {
-      // Pass the entire input object to builtin commands
       return await this.builtins.execute(command, input);
     }
-
-    // For external commands, continue using just the args array
+  
     return await this.processManager.spawnProcess(command, input.args);
   }
 }
